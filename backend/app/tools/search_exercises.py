@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 from ..data import Exercise
+from ..observability import traced
 from .schemas import SearchExercisesInput
 
 
+@traced(run_type="tool", name="search_exercises")
 def search_exercises(args: SearchExercisesInput, exercises: list[Exercise]) -> list[Exercise]:
     """Filter exercises by muscle groups, equipment, movement patterns, avoid_joints.
 

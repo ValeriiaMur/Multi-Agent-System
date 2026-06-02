@@ -64,6 +64,29 @@ cd frontend && npm test          # 3 passed
 The LLM is stubbed in tests (deterministic, offline). Live runs use Anthropic via
 `app/llm.py`; set `ANTHROPIC_API_KEY` and start `uvicorn app.server:app`.
 
+### Live demo & golden tests
+
+```bash
+cd backend
+export ANTHROPIC_API_KEY=sk-ant-...
+python -m scripts.demo        # runs all three routes + an ambiguous (CLARIFY) case
+pytest -m live                # golden tests against the real model (skipped without a key)
+```
+
+### Observability (LangSmith)
+
+LangChain auto-traces LLM calls and graph nodes; the tools (`search_exercises`,
+`build_workout`, `fuzzy_match_exercise`) are wrapped with a `@traced` decorator
+(`app/observability.py`) so tool invocations appear as nested spans. Enable it:
+
+```bash
+export LANGCHAIN_TRACING_V2=true LANGCHAIN_API_KEY=lsv2_... LANGCHAIN_PROJECT=fitness-coach-agents
+```
+
+`@traced` is a no-op when `langsmith` isn't installed, so the offline test suite
+stays deterministic. A `log_event()` helper also emits structured JSON lines as a
+local, always-on fallback.
+
 ## Architecture
 
 ```

@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..data import Exercise
+from ..observability import traced
 from .schemas import BuildWorkoutInput
 
 
@@ -11,6 +12,7 @@ class UnknownExerciseError(ValueError):
     """Raised when a tool call references an exercise ID not in the dataset."""
 
 
+@traced(run_type="tool", name="build_workout")
 def build_workout(args: BuildWorkoutInput, exercises: list[Exercise]) -> dict[str, Any]:
     """Assemble a structured workout {warmup, main, cooldown}.
 

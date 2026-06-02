@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from .._util import last_human_text
 from ..data import Exercise, load_exercises
-from ..observability import log_event
+from ..observability import log_event, traced
 from ..state import HubState
 
 _MATCH_THRESHOLD = 0.6
@@ -36,6 +36,7 @@ class RawLog(BaseModel):
     entries: list[RawEntry] = Field(description="One item per exercise reported.")
 
 
+@traced(run_type="tool", name="fuzzy_match_exercise")
 def fuzzy_match_exercise(name: str, exercises: list[Exercise]) -> Exercise | None:
     """Return the best dataset match for a colloquial exercise name, or None.
 
