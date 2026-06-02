@@ -1,0 +1,134 @@
+<svg viewBox="0 0 900 800" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="ttl dsc">
+  <title id="ttl">Fitness Coaching Multi-Agent System — request flow</title>
+  <desc id="dsc">A web chat UI sends requests to a LangGraph hub. A router uses LLM structured output and a confidence threshold to dispatch to one of three sub-agent graphs (coach, workout generator, workout logger) or a clarify node. The generator and logger call tools that read the exercise library, and the shaped JSON response returns to the UI. Cross-cutting concerns are the Anthropic LLM provider, thread-scoped memory, and LangSmith observability.</desc>
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--color-text-secondary,#8a8a8a)"/></marker>
+    <marker id="ai" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--color-text-info,#2563eb)"/></marker>
+  </defs>
+  <style>
+    .t{fill:var(--color-text-primary,#1b1b1b);font-family:var(--font-sans,system-ui,-apple-system,sans-serif);}
+    .s{fill:var(--color-text-secondary,#6b6b6b);font-family:var(--font-sans,system-ui,-apple-system,sans-serif);}
+    .i{fill:var(--color-text-info,#2563eb);font-family:var(--font-sans,system-ui,-apple-system,sans-serif);}
+    .m{fill:var(--color-text-secondary,#6b6b6b);font-family:var(--font-mono,ui-monospace,monospace);}
+    .box{fill:var(--color-background-primary,#ffffff);stroke:var(--color-border-secondary,#d4d4d4);stroke-width:1.4;}
+    .hub{fill:none;stroke:var(--color-text-info,#2563eb);stroke-width:1.6;}
+    .ln{stroke:var(--color-border-secondary,#b4b4b4);stroke-width:1.5;fill:none;}
+    .dash{stroke:var(--color-text-info,#2563eb);stroke-width:1.3;fill:none;stroke-dasharray:4 4;opacity:.85;}
+  </style>
+
+  <!-- title -->
+  <text class="t" x="40" y="40" font-size="21" font-weight="700">Fitness Coaching Multi-Agent System</text>
+  <text class="s" x="40" y="60" font-size="12.5">Request flow — a LangGraph hub routes to sub-agents, which call tools over the exercise library.</text>
+
+  <!-- client -->
+  <rect class="box" x="150" y="86" width="300" height="48" rx="9"/>
+  <text class="t" x="300" y="107" text-anchor="middle" font-size="13" font-weight="700">Web Chat UI</text>
+  <text class="s" x="300" y="123" text-anchor="middle" font-size="10.5">RouteBadge · WorkoutCard · LogEntry</text>
+  <path class="ln" d="M300,134 L300,160" marker-end="url(#a)"/>
+  <text class="s" x="312" y="151" font-size="10">POST /chat · /chat/stream (SSE)</text>
+
+  <!-- hub container -->
+  <rect class="hub" x="60" y="164" width="480" height="300" rx="12"/>
+  <text class="i" x="74" y="185" font-size="12" font-weight="700">Hub · StateGraph (typed HubState)</text>
+
+  <!-- router -->
+  <rect class="box" x="200" y="198" width="200" height="44" rx="8"/>
+  <text class="t" x="300" y="218" text-anchor="middle" font-size="12.5" font-weight="700">Router</text>
+  <text class="s" x="300" y="233" text-anchor="middle" font-size="9.8">LLM structured output</text>
+  <path class="ln" d="M300,242 L300,261" marker-end="url(#a)"/>
+
+  <!-- decision -->
+  <polygon class="box" points="300,262 356,292 300,322 244,292"/>
+  <text class="s" x="300" y="289" text-anchor="middle" font-size="9.5">confidence</text>
+  <text class="s" x="300" y="301" text-anchor="middle" font-size="9.5">&#8805; 0.6 ?</text>
+
+  <!-- clarify -->
+  <rect class="box" x="424" y="270" width="104" height="44" rx="8"/>
+  <text class="t" x="476" y="290" text-anchor="middle" font-size="11.5" font-weight="700">CLARIFY</text>
+  <text class="s" x="476" y="304" text-anchor="middle" font-size="9.3">ask to disambiguate</text>
+  <path class="ln" d="M356,292 L422,292" marker-end="url(#a)"/>
+  <text class="s" x="389" y="285" text-anchor="middle" font-size="10">no</text>
+
+  <!-- route fan -->
+  <path class="ln" d="M300,322 L300,338"/>
+  <path class="ln" d="M140,338 L460,338"/>
+  <path class="ln" d="M140,338 L140,352" marker-end="url(#a)"/>
+  <path class="ln" d="M300,338 L300,352" marker-end="url(#a)"/>
+  <path class="ln" d="M460,338 L460,352" marker-end="url(#a)"/>
+  <text class="s" x="309" y="334" font-size="10">yes</text>
+
+  <!-- route boxes -->
+  <rect class="box" x="74" y="352" width="132" height="96" rx="8"/>
+  <text class="t" x="140" y="378" text-anchor="middle" font-size="11.5" font-weight="700">COACH</text>
+  <text class="s" x="140" y="392" text-anchor="middle" font-size="9">sub-graph</text>
+  <text class="s" x="140" y="412" text-anchor="middle" font-size="9.5">grounded Q&amp;A</text>
+
+  <rect class="box" x="234" y="352" width="132" height="96" rx="8"/>
+  <text class="t" x="300" y="378" text-anchor="middle" font-size="10" font-weight="700">WORKOUT_GENERATE</text>
+  <text class="s" x="300" y="392" text-anchor="middle" font-size="9">sub-graph</text>
+  <text class="s" x="300" y="412" text-anchor="middle" font-size="9.3">spec &#8594; search &#8594; build</text>
+
+  <rect class="box" x="394" y="352" width="132" height="96" rx="8"/>
+  <text class="t" x="460" y="378" text-anchor="middle" font-size="10.5" font-weight="700">WORKOUT_LOG</text>
+  <text class="s" x="460" y="392" text-anchor="middle" font-size="9">sub-graph</text>
+  <text class="s" x="460" y="412" text-anchor="middle" font-size="9.3">extract &#8594; fuzzy match</text>
+
+  <!-- tools -->
+  <text class="t" x="60" y="498" font-size="11" font-weight="700">Tools <tspan class="s" font-weight="400" font-size="9.5">· Pydantic schemas · @traced</tspan></text>
+  <rect class="box" x="60" y="508" width="150" height="46" rx="8"/>
+  <text class="m" x="135" y="530" text-anchor="middle" font-size="10">search_exercises</text>
+  <text class="s" x="135" y="544" text-anchor="middle" font-size="8.8">filter library</text>
+  <rect class="box" x="226" y="508" width="150" height="46" rx="8"/>
+  <text class="m" x="301" y="530" text-anchor="middle" font-size="10">build_workout</text>
+  <text class="s" x="301" y="544" text-anchor="middle" font-size="8.8">validate exercise IDs</text>
+  <rect class="box" x="392" y="508" width="158" height="46" rx="8"/>
+  <text class="m" x="471" y="530" text-anchor="middle" font-size="9.5">fuzzy_match_exercise</text>
+  <text class="s" x="471" y="544" text-anchor="middle" font-size="8.8">name &#8594; catalog</text>
+
+  <!-- route -> tools -->
+  <path class="ln" d="M300,448 L300,476"/>
+  <path class="ln" d="M135,476 L301,476"/>
+  <path class="ln" d="M135,476 L135,508" marker-end="url(#a)"/>
+  <path class="ln" d="M301,476 L301,508" marker-end="url(#a)"/>
+  <path class="ln" d="M460,448 L460,490 L471,490 L471,508" marker-end="url(#a)"/>
+
+  <!-- data store -->
+  <g>
+    <path class="box" d="M160,586 a58,9 0 0,1 116,0 v28 a58,9 0 0,1 -116,0 z"/>
+    <ellipse class="box" cx="218" cy="586" rx="58" ry="9"/>
+  </g>
+  <text class="m" x="218" y="600" text-anchor="middle" font-size="10">exercises.json</text>
+  <text class="s" x="218" y="613" text-anchor="middle" font-size="9">50 exercises</text>
+  <path class="ln" d="M135,554 L135,572"/>
+  <path class="ln" d="M301,554 L301,572"/>
+  <path class="ln" d="M135,572 L301,572"/>
+  <path class="ln" d="M218,572 L218,577" marker-end="url(#a)"/>
+
+  <!-- shaped response flow -->
+  <path class="dash" d="M384,464 L384,652" marker-end="url(#ai)"/>
+  <text class="s" x="392" y="600" font-size="9">shape_response()</text>
+
+  <rect class="box" x="150" y="652" width="400" height="58" rx="9" stroke="var(--color-text-info,#2563eb)"/>
+  <text class="t" x="350" y="674" text-anchor="middle" font-size="11.5" font-weight="700">API Response &#8594; Web Chat UI (END)</text>
+  <text class="m" x="350" y="691" text-anchor="middle" font-size="9.3">{ route · confidence · reply · workout · log_entries }</text>
+  <path class="dash" d="M150,681 L40,681 L40,110 L150,110" marker-end="url(#ai)"/>
+  <text class="i" x="46" y="400" font-size="9" transform="rotate(-90 46,400)">render</text>
+
+  <!-- cross-cutting rail -->
+  <text class="i" x="600" y="185" font-size="11" font-weight="700">Cross-cutting</text>
+  <rect class="box" x="600" y="198" width="270" height="56" rx="8"/>
+  <text class="t" x="614" y="220" font-size="11" font-weight="700">LLM provider</text>
+  <text class="s" x="614" y="237" font-size="9.5">Anthropic — swappable via app/llm.py</text>
+  <rect class="box" x="600" y="266" width="270" height="56" rx="8"/>
+  <text class="t" x="614" y="288" font-size="11" font-weight="700">Memory</text>
+  <text class="s" x="614" y="305" font-size="9.5">checkpointer · thread-scoped</text>
+  <rect class="box" x="600" y="334" width="270" height="56" rx="8"/>
+  <text class="t" x="614" y="356" font-size="11" font-weight="700">Observability</text>
+  <text class="s" x="614" y="373" font-size="9.5">LangSmith @traced + JSON logs</text>
+  <path class="dash" d="M540,226 L600,226"/>
+  <path class="dash" d="M540,294 L600,294"/>
+  <path class="dash" d="M540,362 L600,362"/>
+
+  <!-- legend -->
+  <text class="s" x="40" y="762" font-size="9.8">Blue = hub boundary, cross-cutting concerns &amp; shaped-response path · solid arrows = request flow · dashed = state shaping &amp; cross-cutting wiring.</text>
+</svg>

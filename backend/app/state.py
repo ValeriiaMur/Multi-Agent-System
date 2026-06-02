@@ -12,6 +12,7 @@ class HubState(TypedDict, total=False):
     messages: Annotated[list, add_messages]
     route: Route
     confidence: float
+    reason: str
     # sub-agent outputs
     workout: dict[str, Any] | None
     log_entries: list[dict[str, Any]] | None

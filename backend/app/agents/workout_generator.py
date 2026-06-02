@@ -22,9 +22,10 @@ from ..tools.search_exercises import search_exercises
 GEN_PROMPT = (
     "Extract workout parameters from the user's request: target muscle groups, "
     "available equipment, desired movement patterns, total duration in minutes, "
-    "and any joints to avoid (injuries)."
+    "any joints to avoid (injuries), and the training goal."
 )
 MAX_MAIN_EXERCISES = 5
+_GOAL_REPS = {"strength": (4, 10, 75), "endurance": (3, 15, 45), "power": (5, 5, 120)}
 
 
 class GenerationSpec(BaseModel):
@@ -33,6 +34,46 @@ class GenerationSpec(BaseModel):
     movement_patterns: list[str] = Field(default_factory=list, description="Desired patterns.")
     duration_minutes: int = Field(default=30, description="Total session length in minutes.")
     avoid_joints: list[str] = Field(default_factory=list, description="Joints to avoid loading.")
+    goal: str = Field(default="strength", description="strength | endurance | power.")
+
+
+def _matches(patterns: list[str], needle: str) -> bool:
+    return any(needle in p.lower() for p in patterns)
+
+
+def _is_warmup(e) -> bool:
+    return _matches(e.movement_patterns, "mobility") or _matches(e.movement_patterns, "dynamic")
+
+
+def _is_cooldown(e) -> bool:
+    return (
+        _matches(e.movement_patterns, "mobility - static")
+        or _matches(e.movement_patterns, "stretch")
+        or _matches(e.movement_patterns, "regen")
+    )
+
+
+def _enrich(rendered: list[dict], by_id: dict, kind: str) -> list[dict]:
+    """Decorate built items with muscle data + a human-readable prescription."""
+    out = []
+    for it in rendered:
+        ex = by_id.get(it["exercise_id"])
+        if kind == "warmup":
+            presc, rest = "0:45", 15
+        elif kind == "cooldown":
+            presc, rest = "0:30 hold", 0
+        else:
+            presc, rest = f"{it['sets']} × {it['reps']}", it["rest_seconds"]
+        out.append(
+            {
+                **it,
+                "muscle_groups": ex.muscle_groups if ex else [],
+                "is_bilateral": ex.is_bilateral if ex else False,
+                "prescription": presc,
+                "rest": rest,
+            }
+        )
+    return out
 
 
 def build_generator_graph(llm, exercises=None):
@@ -73,12 +114,25 @@ def build_generator_graph(llm, exercises=None):
 
         found = expand_bilateral(found, catalog)  # stretch: bilateral pairing
         chosen = sorted(found, key=lambda e: e.priority_tier or 99)[:MAX_MAIN_EXERCISES]
-        items = [
-            WorkoutItem(exercise_id=e.id, sets=3, reps=10, rest_seconds=90) for e in chosen
+        sets, reps, rest = _GOAL_REPS.get(spec.goal, _GOAL_REPS["strength"])
+        main_items = [
+            WorkoutItem(exercise_id=e.id, sets=sets, reps=reps, rest_seconds=rest) for e in chosen
         ]
+        # Real warm-up / cool-down drawn from the same catalog (never invented).
+        chosen_ids = {e.id for e in chosen}
+        warm = [e for e in catalog if _is_warmup(e) and e.id not in chosen_ids][:2]
+        cool = [e for e in catalog if _is_cooldown(e) and e.id not in chosen_ids][:2]
+        warm_items = [WorkoutItem(exercise_id=e.id, sets=1, reps=1, rest_seconds=15) for e in warm]
+        cool_items = [WorkoutItem(exercise_id=e.id, sets=1, reps=1, rest_seconds=0) for e in cool]
         try:
             workout = build_workout(
-                BuildWorkoutInput(duration_minutes=spec.duration_minutes, main=items), catalog
+                BuildWorkoutInput(
+                    duration_minutes=spec.duration_minutes,
+                    warmup=warm_items,
+                    main=main_items,
+                    cooldown=cool_items,
+                ),
+                catalog,
             )
         except UnknownExerciseError as exc:  # invalid tool call -> recover
             log_event("error", "build_workout", {"detail": str(exc)})
@@ -88,6 +142,19 @@ def build_generator_graph(llm, exercises=None):
                 ],
                 "workout": None,
             }
+
+        by_id = {e.id: e for e in catalog}
+        workout["warmup"] = _enrich(workout["warmup"], by_id, "warmup")
+        workout["main"] = _enrich(workout["main"], by_id, "main")
+        workout["cooldown"] = _enrich(workout["cooldown"], by_id, "cooldown")
+        workout["meta"] = {
+            "duration_min": spec.duration_minutes,
+            "goal": spec.goal,
+            "muscle_groups": spec.muscle_groups,
+            "equipment": spec.equipment or ["Any"],
+            "avoid_joints": avoid,
+            "empty": False,
+        }
 
         log_event("tool", "build_workout", {"main": len(workout["main"])})
         return {

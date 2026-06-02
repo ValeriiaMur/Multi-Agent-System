@@ -15,9 +15,11 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage
+from langchain_core.tracers.context import collect_runs
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from .observability import submit_feedback
 from .shaping import shape_response
 
 app = FastAPI(title="Fitness Coach Agents")
@@ -35,6 +37,12 @@ class ChatRequest(BaseModel):
     avoid_joints: list[str] = []
 
 
+class FeedbackRequest(BaseModel):
+    run_id: str
+    score: float  # 1 = 👍, 0 = 👎
+    comment: str | None = None
+
+
 @lru_cache(maxsize=1)
 def get_graph():
     from .hub.graph import build_hub_graph
@@ -50,11 +58,23 @@ def _config(thread_id: str | None) -> dict:
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-    state = get_graph().invoke(
-        {"messages": [HumanMessage(content=req.message)], "avoid_joints": req.avoid_joints},
-        _config(req.thread_id),
-    )
-    return shape_response(state)
+    # collect_runs captures the same run id the LangSmith tracer reports, so the
+    # UI can later attach 👍/👎 feedback to this exact trace.
+    with collect_runs() as cb:
+        state = get_graph().invoke(
+            {"messages": [HumanMessage(content=req.message)], "avoid_joints": req.avoid_joints},
+            _config(req.thread_id),
+        )
+    out = shape_response(state)
+    out["run_id"] = str(cb.traced_runs[0].id) if cb.traced_runs else None
+    return out
+
+
+@app.post("/feedback")
+def feedback(req: FeedbackRequest):
+    """Forward a thumbs up/down to LangSmith as run feedback (no-op if disabled)."""
+    sent = submit_feedback(req.run_id, req.score, req.comment)
+    return {"ok": sent}
 
 
 @app.get("/chat/stream")

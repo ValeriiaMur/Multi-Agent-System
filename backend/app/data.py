@@ -2,12 +2,32 @@
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic import BaseModel
 
-DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "exercises.json"
+_HERE = Path(__file__).resolve()
+# Candidate locations, in priority order. Works whether the app is run from the
+# repo root or from backend/ (e.g. Railway with a backend root directory).
+_CANDIDATES = [
+    _HERE.parents[1] / "data" / "exercises.json",  # backend/data/exercises.json
+    _HERE.parents[2] / "data" / "exercises.json",  # <repo>/data/exercises.json
+]
+
+
+def _resolve_data_path() -> Path:
+    env = os.getenv("EXERCISES_PATH")
+    if env:
+        return Path(env)
+    for candidate in _CANDIDATES:
+        if candidate.exists():
+            return candidate
+    return _CANDIDATES[0]  # default; load_exercises will raise a clear error
+
+
+DATA_PATH = _resolve_data_path()
 
 
 class Exercise(BaseModel):

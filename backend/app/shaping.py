@@ -15,6 +15,7 @@ def shape_response(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "route": state.get("route"),
         "confidence": state.get("confidence"),
+        "reason": state.get("reason"),
         "reply": reply,
         "workout": state.get("workout"),
         "log_entries": state.get("log_entries"),

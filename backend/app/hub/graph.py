@@ -32,7 +32,11 @@ def build_hub_graph(llm, exercises=None, checkpointer=None):
     def router(state: HubState) -> dict:
         decision = route_message(last_human_text(state["messages"]), llm)
         log_event("router", "route", {"route": decision.route, "confidence": decision.confidence})
-        return {"route": decision.route, "confidence": decision.confidence}
+        return {
+            "route": decision.route,
+            "confidence": decision.confidence,
+            "reason": decision.reason,
+        }
 
     def clarify(state: HubState) -> dict:
         return {"messages": [AIMessage(content=CLARIFY_TEXT)]}

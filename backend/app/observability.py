@@ -40,6 +40,28 @@ def log_event(kind: str, name: str, payload: dict[str, Any]) -> None:
     sys.stdout.write(json.dumps(record, default=str) + "\n")
 
 
+def submit_feedback(
+    run_id: str, score: float, comment: str | None = None, key: str = "user_score"
+) -> bool:
+    """Attach a thumbs up/down to a LangSmith run so it shows up in traces.
+
+    Returns True if the feedback was sent. No-op (returns False) when langsmith is
+    not installed or the run id is missing, so the UI degrades gracefully offline.
+    """
+    if not _HAS_LANGSMITH or not run_id:
+        log_event("feedback", "skipped", {"run_id": run_id, "score": score})
+        return False
+    try:
+        from langsmith import Client
+
+        Client().create_feedback(run_id, key=key, score=score, comment=comment)
+        log_event("feedback", "sent", {"run_id": run_id, "score": score})
+        return True
+    except Exception as exc:  # pragma: no cover - network/auth failures
+        log_event("error", "feedback", {"detail": str(exc)})
+        return False
+
+
 def traced(run_type: str = "tool", name: str | None = None) -> Callable[[F], F]:
     """Decorator: register the function as a LangSmith span when available.
 
