@@ -9,5 +9,10 @@ export default defineConfig({
     setupFiles: ["./tests/setup.ts"],
     include: ["tests/**/*.test.tsx"],
   },
-  server: { proxy: { "/chat": "http://localhost:8000" } },
+  server: {
+    proxy: {
+      "/chat": "http://localhost:8000",
+      "/feedback": "http://localhost:8000",
+    },
+  },
 });
