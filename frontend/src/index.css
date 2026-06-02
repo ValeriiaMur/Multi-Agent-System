@@ -1,0 +1,183 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── design tokens (from Future Coach.html) ── */
+@layer base {
+  :root {
+    --blue: #0a84ff;
+    --good: #30d158;
+    --amber: #ffd60a;
+    --cyan: #64d2ff;
+    --accent: #ff6b3d;
+    --accent-14: rgba(255, 107, 61, 0.14);
+    --accent-22: rgba(255, 107, 61, 0.22);
+  }
+
+  /* dark (default — matches Future's real app) */
+  .theme-dark {
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --surface-2: #161618;
+    --bubble-coach: #262629;
+    --text: #ffffff;
+    --text-2: rgba(235, 235, 245, 0.62);
+    --muted: rgba(235, 235, 245, 0.4);
+    --line: rgba(255, 255, 255, 0.14);
+    --line-soft: rgba(255, 255, 255, 0.07);
+    --chip: rgba(255, 255, 255, 0.08);
+    --track: rgba(255, 255, 255, 0.16);
+    --home-ind: rgba(255, 255, 255, 0.5);
+    --header-bg: rgba(12, 12, 13, 0.74);
+    --tabbar-bg: rgba(18, 18, 20, 0.82);
+  }
+
+  .theme-light {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f2f2f7;
+    --bubble-coach: #e9e9eb;
+    --text: #000000;
+    --text-2: rgba(60, 60, 67, 0.62);
+    --muted: rgba(60, 60, 67, 0.42);
+    --line: rgba(0, 0, 0, 0.12);
+    --line-soft: rgba(0, 0, 0, 0.06);
+    --chip: rgba(0, 0, 0, 0.05);
+    --track: rgba(0, 0, 0, 0.1);
+    --good: #1f8a4c;
+    --amber: #b7791f;
+    --cyan: #0a84ff;
+    --home-ind: rgba(0, 0, 0, 0.3);
+    --header-bg: rgba(255, 255, 255, 0.82);
+    --tabbar-bg: rgba(255, 255, 255, 0.86);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+  body {
+    background: #161618;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ── pieces that are genuinely CSS-only (pseudo tails, sweeps, carets) ── */
+@layer components {
+  /* iMessage bubble tails */
+  .bubble-coach::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    bottom: 0;
+    left: -7px;
+    height: 21px;
+    width: 20px;
+    background: var(--bubble-coach);
+    border-bottom-right-radius: 16px;
+  }
+  .bubble-coach::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    bottom: 0;
+    left: -12px;
+    height: 21px;
+    width: 13px;
+    background: var(--bg);
+    border-bottom-right-radius: 11px;
+  }
+  .bubble-user::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    bottom: 0;
+    right: -7px;
+    height: 21px;
+    width: 20px;
+    background: var(--blue);
+    border-bottom-left-radius: 16px;
+  }
+  .bubble-user::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    bottom: 0;
+    right: -12px;
+    height: 21px;
+    width: 13px;
+    background: var(--bg);
+    border-bottom-left-radius: 11px;
+  }
+
+  /* blinking stream caret */
+  .caret {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--accent);
+    margin-left: 1px;
+    vertical-align: -2px;
+    animation: blink 0.9s steps(1) infinite;
+  }
+
+  /* glossy orb avatar */
+  .coach-av {
+    background: linear-gradient(140deg, #ffb088 0%, #ff7a4d 45%, #e8472a 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .coach-av::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(58% 50% at 34% 26%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0) 62%);
+  }
+
+  /* pulsing indeterminate "thinking" bar */
+  .tb-sweep {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 42%;
+    border-radius: 99px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--accent),
+      color-mix(in oklab, var(--accent), #fff 55%),
+      var(--accent),
+      transparent
+    );
+    box-shadow: 0 0 10px var(--accent), 0 0 22px var(--accent);
+    animation: tbsweep 1.25s cubic-bezier(0.55, 0, 0.45, 1) infinite;
+  }
+
+  /* accent edge on the workout card */
+  .wcard-edge::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 2;
+    background: linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent), #fff 55%));
+  }
+
+  /* hide the transcript scrollbar */
+  .no-scrollbar::-webkit-scrollbar {
+    width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise {
+    animation: none;
+  }
+}

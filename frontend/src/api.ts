@@ -14,6 +14,27 @@ export async function sendChat(message: string, threadId?: string): Promise<Chat
   return res.json();
 }
 
+/** Forward a thumbs up/down to the backend, which records it as LangSmith
+ *  run feedback (no-op server-side when tracing is disabled). */
+export async function sendFeedback(
+  runId: string,
+  score: number,
+  comment?: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_id: runId, score, comment }),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { ok?: boolean };
+    return Boolean(data.ok);
+  } catch {
+    return false;
+  }
+}
+
 /** SSE token stream from the backend's /chat/stream endpoint. */
 export function streamChat(
   message: string,

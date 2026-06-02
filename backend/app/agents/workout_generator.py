@@ -24,8 +24,14 @@ GEN_PROMPT = (
     "available equipment, desired movement patterns, total duration in minutes, "
     "any joints to avoid (injuries), and the training goal."
 )
-MAX_MAIN_EXERCISES = 5
+MAX_MAIN_EXERCISES = 6
+MIN_MAIN_EXERCISES = 2
 _GOAL_REPS = {"strength": (4, 10, 75), "endurance": (3, 15, 45), "power": (5, 5, 120)}
+
+
+def _main_count(duration_minutes: int) -> int:
+    """Roughly one main exercise per ~10 minutes, clamped to a sane range."""
+    return max(MIN_MAIN_EXERCISES, min(MAX_MAIN_EXERCISES, duration_minutes // 10 + 1))
 
 
 class GenerationSpec(BaseModel):
@@ -113,7 +119,8 @@ def build_generator_graph(llm, exercises=None):
             }
 
         found = expand_bilateral(found, catalog)  # stretch: bilateral pairing
-        chosen = sorted(found, key=lambda e: e.priority_tier or 99)[:MAX_MAIN_EXERCISES]
+        n_main = _main_count(spec.duration_minutes)
+        chosen = sorted(found, key=lambda e: e.priority_tier or 99)[:n_main]
         sets, reps, rest = _GOAL_REPS.get(spec.goal, _GOAL_REPS["strength"])
         main_items = [
             WorkoutItem(exercise_id=e.id, sets=sets, reps=reps, rest_seconds=rest) for e in chosen
