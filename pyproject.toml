@@ -1,0 +1,34 @@
+[project]
+name = "fitness-coach-agents"
+version = "0.1.0"
+description = "Multi-agent fitness coaching system (LangGraph hub + sub-agents)"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2",
+    "langchain>=0.3",
+    "langchain-anthropic>=0.2",
+    "langchain-core>=0.3",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "sse-starlette>=2.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+markers = [
+    "live: hits the real LLM provider (excluded from default run)",
+]
+addopts = "-m 'not live'"
+
+[tool.ruff]
+line-length = 100
