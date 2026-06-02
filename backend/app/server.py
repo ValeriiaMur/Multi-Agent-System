@@ -12,7 +12,7 @@ import json
 from functools import lru_cache
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage
 from langchain_core.tracers.context import collect_runs
@@ -21,6 +21,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from .config import get_allowed_origins
 from .observability import submit_feedback
+from .security import rate_limit, require_api_key
 from .shaping import shape_response
 
 app = FastAPI(title="Fitness Coach Agents")
@@ -63,7 +64,7 @@ def _config(thread_id: str | None) -> dict:
     return {"configurable": {"thread_id": thread_id or "default"}}
 
 
-@app.post("/chat")
+@app.post("/chat", dependencies=[Depends(require_api_key), Depends(rate_limit)])
 def chat(req: ChatRequest):
     # collect_runs captures the same run id the LangSmith tracer reports, so the
     # UI can later attach 👍/👎 feedback to this exact trace.
@@ -77,14 +78,14 @@ def chat(req: ChatRequest):
     return out
 
 
-@app.post("/feedback")
+@app.post("/feedback", dependencies=[Depends(require_api_key), Depends(rate_limit)])
 def feedback(req: FeedbackRequest):
     """Forward a thumbs up/down to LangSmith as run feedback (no-op if disabled)."""
     sent = submit_feedback(req.run_id, req.score, req.comment)
     return {"ok": sent}
 
 
-@app.get("/chat/stream")
+@app.get("/chat/stream", dependencies=[Depends(require_api_key), Depends(rate_limit)])
 async def chat_stream(message: str, thread_id: str | None = None):
     graph = get_graph()
 

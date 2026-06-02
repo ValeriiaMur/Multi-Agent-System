@@ -28,7 +28,21 @@ def get_allowed_origins() -> list[str]:
     """CORS allowlist from ALLOWED_ORIGINS (comma-separated). Defaults to ['*'].
 
     Read live (not frozen at import) so the server and tests see the current env.
+    In production set it to the deployed frontend origin to lock CORS down.
     """
     raw = os.getenv("ALLOWED_ORIGINS", "*")
     origins = [o.strip() for o in raw.split(",") if o.strip()]
     return origins or ["*"]
+
+
+def get_api_key() -> str | None:
+    """Shared secret the frontend must send as X-API-Key. None disables the check."""
+    return os.getenv("API_KEY") or None
+
+
+def get_rate_limit_per_min() -> int:
+    """Max /chat requests per client per minute. 0 disables limiting."""
+    try:
+        return int(os.getenv("RATE_LIMIT_PER_MIN", "30"))
+    except ValueError:
+        return 30
