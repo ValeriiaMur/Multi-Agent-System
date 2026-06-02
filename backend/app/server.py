@@ -12,15 +12,16 @@ import json
 from functools import lru_cache
 from typing import Any
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from langchain_core.messages import HumanMessage
 from langchain_core.tracers.context import collect_runs
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from .config import get_allowed_origins
-from .observability import submit_feedback
+from .observability import log_event, submit_feedback
 from .security import rate_limit, require_api_key
 from .shaping import shape_response
 
@@ -37,6 +38,18 @@ app.add_middleware(
 def healthz():
     """Liveness probe for Railway's healthcheck."""
     return {"status": "ok"}
+
+
+@app.exception_handler(Exception)
+async def unhandled_error(request: Request, exc: Exception):
+    """Log the traceback and surface the error type so a 500 isn't opaque.
+
+    Auth (401) and rate-limit (429) are HTTPExceptions handled separately, so
+    they aren't swallowed here. The common cause of a /chat error is a missing
+    ANTHROPIC_API_KEY on the backend.
+    """
+    log_event("error", "unhandled", {"path": request.url.path, "type": type(exc).__name__, "detail": str(exc)})
+    return JSONResponse(status_code=502, content={"error": type(exc).__name__, "detail": str(exc)})
 
 
 class ChatRequest(BaseModel):
