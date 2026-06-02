@@ -67,12 +67,28 @@ it("shows route and confidence", () => {
 });
 ```
 
+## Keep the system-design diagram current
+
+`docs/system-design.svg` is the canonical architecture picture. Whenever a change
+**materially** alters the system, review the SVG and update it in the same change:
+
+- A new node, edge, route, or sub-agent in the hub graph.
+- A new or removed service / external dependency (e.g. a datastore, queue, provider).
+- A new API endpoint or a changed request/response contract the UI relies on.
+- A change to a cross-cutting concern shown on the diagram (LLM provider, memory, observability).
+
+Internal-only refactors that don't change the boxes or arrows (renames, rep-scheme
+tweaks, added tests) do **not** require a diagram edit — but still glance at it to
+confirm it's accurate. If you edit the SVG, keep the `<title>`/`<desc>` and the
+legend in sync, and re-state the one-line summary in your response.
+
 ## Definition of done (per task)
 
 - New behavior is covered by a test that was RED before the code existed.
 - `pytest -m "not live"` and `npm test` both green.
 - No fabricated data paths (e.g. agents never invent exercise IDs not in the dataset).
 - Public-facing behavior demoable in the web UI or transcript.
+- `docs/system-design.svg` reviewed; updated if the architecture changed materially.
 
 ## Conventions
 

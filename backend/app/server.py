@@ -19,16 +19,23 @@ from langchain_core.tracers.context import collect_runs
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from .config import get_allowed_origins
 from .observability import submit_feedback
 from .shaping import shape_response
 
 app = FastAPI(title="Fitness Coach Agents")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_allowed_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/healthz")
+def healthz():
+    """Liveness probe for Railway's healthcheck."""
+    return {"status": "ok"}
 
 
 class ChatRequest(BaseModel):

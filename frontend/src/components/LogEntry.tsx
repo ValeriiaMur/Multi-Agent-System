@@ -1,5 +1,4 @@
 import type { LogEntry } from "../types";
-import { Tag } from "./primitives";
 
 /** Logged-session card — fuzzy-matched names, honest about unmatched entries. */
 export function LogCard({ entries }: { entries: LogEntry[] }) {

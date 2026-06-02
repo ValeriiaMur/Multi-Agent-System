@@ -1,0 +1,26 @@
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { Tag } from "./primitives";
+function Section({ title, items }) {
+    if (!items.length)
+        return null;
+    return (_jsxs("div", { className: "border-b border-line-soft py-[13px] last:border-none", children: [_jsxs("div", { className: "mb-2.5 flex items-center gap-2", children: [_jsx("span", { className: "font-mono text-[11px] font-bold uppercase tracking-[1.4px] text-ink", children: title }), _jsx("span", { className: "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-chip px-[5px] font-mono text-[10px] text-muted", children: items.length })] }), _jsx("div", { className: "flex flex-col gap-[11px]", children: items.map((e, i) => (_jsxs("div", { className: "grid grid-cols-[22px_1fr_auto] items-start gap-2.5", children: [_jsx("span", { className: "pt-0.5 font-mono text-[12px] text-muted", children: String(i + 1).padStart(2, "0") }), _jsxs("div", { children: [_jsx("div", { className: "text-[15px] font-medium leading-[1.25] text-ink", children: e.name }), _jsxs("div", { className: "mt-[5px] flex flex-wrap gap-1", children: [e.muscle_groups.slice(0, 3).map((m) => (_jsx(Tag, { children: m }, m))), e.is_bilateral ? _jsx(Tag, { variant: "ink", children: "both sides" }) : null] })] }), _jsxs("div", { className: "shrink-0 text-right", children: [_jsx("div", { className: "whitespace-nowrap text-[14px] font-bold tabular-nums text-ink", children: e.prescription }), e.rest ? (_jsxs("div", { className: "mt-[3px] font-mono text-[9.5px] text-muted", children: [e.rest, "s rest"] })) : (_jsx("div", { className: "mt-[3px] font-mono text-[9.5px] text-accent", children: "hold" }))] })] }, e.exercise_id + i))) })] }));
+}
+export function WorkoutCard({ workout, cardStyle = "tinted" }) {
+    const { warmup, main, cooldown } = workout;
+    const meta = workout.meta ?? {
+        duration_min: workout.duration_minutes,
+        goal: "strength",
+        muscle_groups: [],
+        equipment: [],
+        avoid_joints: [],
+        empty: false,
+    };
+    const total = warmup.length + main.length + cooldown.length;
+    const goalLabel = { strength: "Strength", endurance: "Endurance", power: "Power" }[meta.goal] ?? "Session";
+    const targets = meta.muscle_groups.length ? [...new Set(meta.muscle_groups)].slice(0, 4) : ["full body"];
+    return (_jsxs("div", { "data-testid": "workout-card", "data-cardstyle": cardStyle, className: "wcard-edge relative w-full overflow-hidden rounded-[20px] border border-line bg-surface shadow-[0_14px_40px_rgba(0,0,0,0.35)]", children: [_jsxs("div", { className: "border-b border-line-soft bg-surface-2 px-4 pb-3.5 pt-[15px]", children: [_jsx("div", { className: "font-mono text-[10px] font-bold tracking-[2px] text-accent", children: "YOUR SESSION" }), _jsxs("div", { className: "my-[5px] mb-2.5 text-[21px] font-bold tracking-[-0.5px] text-ink", children: [goalLabel, " \u00B7 ", meta.duration_min, " min"] }), _jsx("div", { className: "flex flex-wrap gap-[5px]", children: targets.map((m) => (_jsx(Tag, { variant: "ink", children: m }, m))) }), _jsxs("div", { className: "mt-[11px] flex flex-wrap items-center gap-[5px]", children: [_jsx("span", { className: "mr-0.5 font-mono text-[9px] tracking-[1.4px] text-muted", children: "EQUIPMENT" }), (meta.equipment.length ? meta.equipment : ["Any"]).slice(0, 5).map((e) => (_jsx("span", { className: "rounded-full border border-line px-[9px] py-0.5 text-[11px] text-ink2", children: e }, e)))] }), meta.avoid_joints.length ? (_jsxs("div", { className: "mt-2.5 text-[11.5px] text-amber", children: ["Avoiding load on ", meta.avoid_joints.join(", ")] })) : null] }), _jsxs("div", { className: "px-4 pb-2 pt-1", children: [_jsx(Section, { title: "Warm-up", items: warmup }), _jsx(Section, { title: "Main set", items: main }), _jsx(Section, { title: "Cool-down", items: cooldown })] }), _jsxs("div", { className: "flex items-center gap-[9px] border-t border-line-soft bg-surface-2 px-4 py-[13px] font-mono text-[11px] text-muted", children: [_jsxs("span", { children: [total, " exercises"] }), _jsx("span", { className: "h-[3px] w-[3px] rounded-full bg-muted" }), _jsxs("span", { children: ["~", meta.duration_min, " min"] }), _jsx("button", { className: "ml-auto rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-white transition hover:-translate-y-px hover:brightness-110", children: "Start session" })] })] }));
+}
+/** Shown when the generator finds no matching exercises (never invents any). */
+export function RecoveryNote({ meta }) {
+    return (_jsxs("div", { className: "w-full rounded-[20px] border border-accent-22 bg-accent-14 px-[15px] py-3.5", children: [_jsx("div", { className: "mb-1 text-[14px] font-bold text-accent", children: "No exact matches in the library" }), _jsxs("div", { className: "text-[14px] leading-[1.45] text-ink2", children: ["I couldn\u2019t find exercises that fit", " ", meta.equipment.length ? _jsx("b", { children: meta.equipment.join(", ") }) : "those constraints", meta.muscle_groups.length ? (_jsxs(_Fragment, { children: [" ", "for ", _jsx("b", { children: [...new Set(meta.muscle_groups)].slice(0, 3).join(", ") })] })) : null, ". I won\u2019t invent any. Try loosening the equipment or target."] })] }));
+}

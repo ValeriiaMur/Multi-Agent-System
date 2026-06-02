@@ -22,7 +22,7 @@ service open **Settings**:
 | Builder | Nixpacks (auto) |
 | Install | `pip install -r requirements.txt` (auto-detected) |
 | Start Command | `uvicorn app.server:app --host 0.0.0.0 --port $PORT` |
-| Healthcheck Path | `/docs` |
+| Healthcheck Path | `/healthz` |
 
 (The Start Command and healthcheck are already declared in `backend/railway.json`
 and `backend/Procfile`, so Railway picks them up automatically — you don't have to
@@ -38,7 +38,15 @@ ROUTER_CONFIDENCE_THRESHOLD=0.6
 LANGSMITH_TRACING=true
 LANGSMITH_API_KEY=lsv2_...
 LANGSMITH_PROJECT=fitness-coach-agents
+# optional hardening
+ALLOWED_ORIGINS=https://your-frontend.up.railway.app   # default "*"
+CHECKPOINT_DB=/data/memory.sqlite                       # durable memory (needs a volume); default in-memory
 ```
+
+> For durable memory across redeploys, set `CHECKPOINT_DB` to a path on a mounted
+> Railway **Volume** and add `langgraph-checkpoint-sqlite` to requirements. Without
+> a volume the file is ephemeral; without the package it safely falls back to
+> in-memory.
 
 Then **Settings → Networking → Generate Domain**. Note the URL, e.g.
 `https://fitness-be-production.up.railway.app`. Verify it: opening `/docs` should
