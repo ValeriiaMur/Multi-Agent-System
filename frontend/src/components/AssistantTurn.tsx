@@ -3,6 +3,7 @@ import { ROUTE_META } from "../lib/agent";
 import { RouteBadge } from "./RouteBadge";
 import { Trace } from "./Trace";
 import { Typing, Streamer } from "./primitives";
+import { Markdown } from "./Markdown";
 import { WorkoutCard, RecoveryNote } from "./WorkoutCard";
 import { LogCard } from "./LogEntry";
 import { ReactionRail } from "./ReactionRail";
@@ -64,9 +65,9 @@ export function AssistantTurn({
             {msg.lead ? (
               <div className="relative max-w-full break-words rounded-[19px] bg-bubble px-3.5 py-[9px] text-[16px] leading-[1.34] tracking-[-0.2px] text-ink bubble-coach">
                 {msg.streamed ? (
-                  msg.lead
+                  <Markdown>{msg.lead}</Markdown>
                 ) : (
-                  <Streamer text={msg.lead} speed={speed} onTick={onTick} onDone={() => onChipsReady(msg.id)} />
+                  <Streamer text={msg.lead} speed={speed} markdown onTick={onTick} onDone={() => onChipsReady(msg.id)} />
                 )}
               </div>
             ) : null}

@@ -52,6 +52,11 @@ export default function App() {
 
   const markChips = useCallback((id: string) => setReadyChips((r) => ({ ...r, [id]: true })), []);
 
+  // Live path is the POST /chat call below; the typewriter effect (Streamer) is a
+  // client-side reveal of the already-complete reply, NOT token-by-token SSE.
+  // This is deliberate: it carries the run_id needed for 👍/👎 feedback, and only
+  // the COACH route returns streamable prose (GENERATE/LOG return structured cards).
+  // A true-SSE alternative exists in api.ts (streamChat → /chat/stream).
   const run = useCallback(
     async (text: string) => {
       const clean = text.trim();

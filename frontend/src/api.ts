@@ -45,8 +45,17 @@ export async function sendFeedback(
   }
 }
 
-/** SSE token stream from the backend's /chat/stream endpoint. EventSource can't
- *  set headers, so the API key (if any) rides along as a query param. */
+/**
+ * SSE token stream from the backend's /chat/stream endpoint.
+ *
+ * AVAILABLE BUT NOT USED BY THE DEFAULT UI — App.tsx uses sendChat() and a
+ * client-side typewriter instead (see the note on `run` in App.tsx). Before
+ * wiring this in, two backend changes are needed:
+ *   1. include `run_id` in the final event (feedback attaches to it), and
+ *   2. filter `on_chat_model_stream` to the answering node so the router's
+ *      structured-output tokens don't leak into the visible text.
+ * EventSource can't set headers, so the API key (if any) rides as a query param.
+ */
 export function streamChat(
   message: string,
   handlers: { onToken?: (t: string) => void; onFinal?: (r: ChatResponse) => void },

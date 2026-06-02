@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Markdown } from "./Markdown";
 
 /** Muscle / equipment chip. `ink` variant = accent-tinted. */
 export function Tag({ children, variant }: { children: React.ReactNode; variant?: "ink" }) {
@@ -44,11 +45,13 @@ export function ThinkingBar() {
 export function Streamer({
   text,
   speed = 24,
+  markdown = false,
   onTick,
   onDone,
 }: {
   text: string;
   speed?: number;
+  markdown?: boolean;
   onTick?: () => void;
   onDone?: () => void;
 }) {
@@ -75,10 +78,22 @@ export function Streamer({
     return () => clearInterval(id);
   }, [text, speed]);
 
+  const shown = parts.current.slice(0, n).join("");
   const done = n >= parts.current.length;
+
+  // Markdown produces block elements, so reveal them inside a div (the bubble
+  // already supplies padding). Plain text keeps the inline blinking caret.
+  if (markdown) {
+    return (
+      <div className="text-[16px] leading-[1.4]">
+        <Markdown>{shown}</Markdown>
+        {!done ? <span className="caret" /> : null}
+      </div>
+    );
+  }
   return (
     <span>
-      {parts.current.slice(0, n).join("")}
+      {shown}
       {!done ? <span className="caret" /> : null}
     </span>
   );
