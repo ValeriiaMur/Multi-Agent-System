@@ -30,8 +30,13 @@ except Exception:  # pragma: no cover - exercised only when langsmith absent
 
 
 def tracing_enabled() -> bool:
-    """True when LangSmith tracing is switched on via env."""
-    return os.getenv("LANGCHAIN_TRACING_V2", "").lower() in ("1", "true", "yes")
+    """True when LangSmith tracing is switched on via env.
+
+    Honors both the modern LANGSMITH_TRACING and the legacy LANGCHAIN_TRACING_V2,
+    matching what the LangChain/LangSmith SDK itself reads.
+    """
+    flags = (os.getenv("LANGSMITH_TRACING"), os.getenv("LANGCHAIN_TRACING_V2"))
+    return any((f or "").lower() in ("1", "true", "yes") for f in flags)
 
 
 def log_event(kind: str, name: str, payload: dict[str, Any]) -> None:

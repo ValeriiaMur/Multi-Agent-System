@@ -27,6 +27,12 @@ def test_traced_preserves_function_output():
 
 def test_tracing_enabled_reads_env(monkeypatch):
     monkeypatch.delenv("LANGCHAIN_TRACING_V2", raising=False)
+    monkeypatch.delenv("LANGSMITH_TRACING", raising=False)
     assert tracing_enabled() is False
+    # legacy flag
     monkeypatch.setenv("LANGCHAIN_TRACING_V2", "true")
+    assert tracing_enabled() is True
+    # modern flag
+    monkeypatch.delenv("LANGCHAIN_TRACING_V2", raising=False)
+    monkeypatch.setenv("LANGSMITH_TRACING", "true")
     assert tracing_enabled() is True

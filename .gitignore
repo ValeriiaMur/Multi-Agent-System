@@ -13,6 +13,9 @@ __pycache__/
 # Node
 node_modules/
 dist/
+# Vite leaks these when bundling a TS config; never commit them
+vite.config.ts.timestamp-*.mjs
+vite.config.*.timestamp-*
 
 # OS
 .DS_Store
