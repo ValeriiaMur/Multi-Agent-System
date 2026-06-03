@@ -29,10 +29,12 @@ Build in a **public** GitHub repo. Include a runnable demo or transcript and a R
 Layout:
 
 ```
-backend/app/    hub (router + graph), agents (coach/generator/logger), tools (Pydantic schemas), state, data, stretch stubs
-backend/tests/  RED test suite: router, tools, logger, resilience, stretch
-frontend/       Vite + React + TS chat UI (RouteBadge, WorkoutCard, LogEntry) with vitest RED tests
-backend/data/   exercises.json (50 exercises) — the dataset
+backend/app/    hub (router + graph), agents (coach/generator/logger), tools (schemas + search/build/normalize),
+                evals (routing golden set), security (API key + rate limit), state, shaping, llm, memory, observability
+backend/tests/  router, tools, logger, resilience, graphs, normalize, context, evals, security, coach grounding
+frontend/       Vite + React + TS + Tailwind chat UI ("Future Coach", iMessage-style): live SSE streaming,
+                route badge + agent trace, workout/log cards, grounded coach references, 👍/👎→LangSmith; vitest tests
+backend/data/   exercises.json (50 exercises) — the dataset (single source of truth)
 ```
 
 Run:
@@ -49,16 +51,43 @@ cd frontend && npm install && npm test   # vitest
 npm run dev
 ```
 
+## Deployment (Railway)
+
+Two services — a static frontend and the FastAPI backend — each deployed from `main`.
+
+- **Frontend:** `https://multi-agent-system.up.railway.app`
+- **Backend:** `https://multi-agent-system-be-production.up.railway.app` (`/healthz` for liveness)
+
+Env vars (set in the respective Railway service; build the frontend after changing its vars,
+since Vite inlines `VITE_*` at build time):
+
+| Service | Variable | Purpose |
+|---|---|---|
+| frontend | `VITE_API_BASE` | Backend public URL (same-origin if unset; needed in prod) |
+| frontend | `VITE_API_KEY` | Optional shared secret, sent as `X-API-Key` (must match backend) |
+| backend | `ANTHROPIC_API_KEY` | LLM key (required) |
+| backend | `LLM_MODEL` / `ROUTER_MODEL` | Global model + per-role overrides (router → Sonnet, rest → Haiku) |
+| backend | `ALLOWED_ORIGINS` | CORS allowlist; set to the frontend origin in prod |
+| backend | `API_KEY` | Optional shared secret enforced on `/chat`, `/feedback`, `/chat/stream` |
+| backend | `RATE_LIMIT_PER_MIN` | Per-IP rate limit (default 30; `0` disables) |
+| backend | `LANGSMITH_TRACING` / `LANGSMITH_API_KEY` | Enable tracing + 👍/👎 feedback |
+| backend | `EXERCISES_PATH` | Override the dataset path (defaults to `backend/data/exercises.json`) |
+
+> Note: an API key baked into a browser bundle is readable by anyone — it raises the bar
+> but isn't real auth. The real protection is CORS locked to the frontend origin + rate limiting.
+
 ## Status
 
 All phases implemented and **green**:
 
-- Backend: `27 passed` (router + threshold, tools, resilience, fuzzy logging, bilateral, observability, the three sub-agent graphs, hub composition, multi-turn memory, response shaping).
-- Frontend: `3 passed` (RouteBadge, WorkoutCard, LogEntry).
+- Backend: `63 passed` (router + threshold + context, tools + vocab normalization, resilience, fuzzy logging,
+  bilateral, observability + feedback, the three sub-agent graphs, hub composition, multi-turn memory,
+  response shaping, coach grounding, routing-eval harness, API-key/rate-limit security).
+- Frontend: `11 passed` (route badge, workout/log cards, viewport, components).
 
 ```bash
-cd backend && pytest -q          # 27 passed (excludes @live)
-cd frontend && npm test          # 3 passed
+cd backend && pytest -q          # 63 passed (excludes @live)
+cd frontend && npm test          # 11 passed
 ```
 
 The LLM is stubbed in tests (deterministic, offline). Live runs use Anthropic via
@@ -99,23 +128,42 @@ export LANGCHAIN_TRACING_V2=true LANGCHAIN_API_KEY=lsv2_... LANGCHAIN_PROJECT=fi
 
 `@traced` is a no-op when `langsmith` isn't installed, so the offline test suite
 stays deterministic. A `log_event()` helper also emits structured JSON lines as a
-local, always-on fallback.
+local, always-on fallback. (`LANGSMITH_TRACING` and the legacy `LANGCHAIN_TRACING_V2`
+are both honored.)
+
+**Feedback loop:** the UI's 👍/👎 posts to `POST /feedback` with the turn's `run_id`
+(captured server-side via `collect_runs`), which `submit_feedback()` records as
+LangSmith run feedback — so you can score real conversations in the trace UI. It's a
+graceful no-op when tracing/langsmith isn't configured.
 
 ## Architecture
 
 ```
-HumanMessage ─▶ router (LLM structured output + confidence threshold)
+HumanMessage ─▶ router (LLM structured output + confidence threshold + recent context)
                  │  confidence < threshold ─▶ CLARIFY
-                 ├─ COACH ───────────▶ coach StateGraph
-                 ├─ WORKOUT_GENERATE ▶ generator StateGraph: spec → search_exercises → build_workout
+                 ├─ COACH ───────────▶ coach StateGraph: retrieve catalog context → grounded answer + references
+                 ├─ WORKOUT_GENERATE ▶ generator StateGraph: spec → normalize → search_exercises → build_workout
                  └─ WORKOUT_LOG ─────▶ logger StateGraph: extract → fuzzy-match catalog
 ```
 
 Each sub-agent is its own compiled `StateGraph` composed as a node in the hub
 (`app/hub/graph.py`), with typed `HubState` and explicit edges. Tools have Pydantic
-input schemas. Stretch goals included: streaming SSE (`/chat/stream`), thread-scoped
-memory (`app/memory.py`), injury avoidance via `avoid_joints`/`joints_loaded`,
-bilateral pairing (`app/bilateral.py`), and structured observability (`app/observability.py`).
+input schemas. Highlights beyond the base task:
+
+- **Grounding everywhere** — generate/log/coach all run over the real `exercises.json`
+  (validated IDs, fuzzy match, retrieved context + `references`); nothing is invented.
+- **Per-agent models** — routing runs on a stronger model (Sonnet) for intent quality;
+  prose/extraction run on Haiku for speed/cost (`get_model(role)`, env-overridable).
+- **Context-aware routing** — the router sees recent turns, so follow-ups ("make it
+  harder") resolve correctly; a labeled **routing eval** harness guards quality.
+- **Vocab normalization** (`tools/normalize.py`) — maps loose LLM output ("upper body",
+  "dumbbells") onto the dataset's exact names; benches/racks are ambient so sessions fill out.
+- **Live streaming to the UI** — SSE (`/chat/stream`) emits `meta` (route) → `token`*
+  (prose) → `final` (payload + `run_id`); the React app renders it in real time.
+- **Feedback loop** — 👍/👎 in the UI posts to `/feedback`, recorded as LangSmith run feedback.
+- **Hardening** — env-driven CORS lockdown, per-IP rate limit, optional `X-API-Key`.
+- Plus thread-scoped memory (`app/memory.py`), injury avoidance, bilateral pairing
+  (`app/bilateral.py`), and structured observability (`app/observability.py`).
 
 ## Critical paths chosen to test
 

@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-06-03T14:22:27.977431+00:00",
+  "eval": "routing",
+  "model": "claude-sonnet-4-6",
+  "accuracy": 1.0,
+  "correct": 13,
+  "total": 13,
+  "floor": 0.8,
+  "passed": true,
+  "failures": []
+}
