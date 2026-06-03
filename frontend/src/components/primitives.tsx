@@ -1,6 +1,3 @@
-import { useEffect, useRef, useState } from "react";
-import { Markdown } from "./Markdown";
-
 /** Muscle / equipment chip. `ink` variant = accent-tinted. */
 export function Tag({ children, variant }: { children: React.ReactNode; variant?: "ink" }) {
   const base =
@@ -38,63 +35,5 @@ export function ThinkingBar() {
       <div className="absolute inset-0 bg-accent opacity-[0.14]" />
       <span className="tb-sweep" />
     </div>
-  );
-}
-
-/** Reveal text word-by-word with a blinking caret. */
-export function Streamer({
-  text,
-  speed = 24,
-  markdown = false,
-  onTick,
-  onDone,
-}: {
-  text: string;
-  speed?: number;
-  markdown?: boolean;
-  onTick?: () => void;
-  onDone?: () => void;
-}) {
-  const parts = useRef<string[]>([]);
-  const [n, setN] = useState(0);
-  const onTickRef = useRef(onTick);
-  const onDoneRef = useRef(onDone);
-  onTickRef.current = onTick;
-  onDoneRef.current = onDone;
-
-  useEffect(() => {
-    parts.current = String(text).split(/(\s+)/);
-    setN(0);
-    let i = 0;
-    const id = setInterval(() => {
-      i += 1;
-      setN(i);
-      onTickRef.current?.();
-      if (i >= parts.current.length) {
-        clearInterval(id);
-        onDoneRef.current?.();
-      }
-    }, speed);
-    return () => clearInterval(id);
-  }, [text, speed]);
-
-  const shown = parts.current.slice(0, n).join("");
-  const done = n >= parts.current.length;
-
-  // Markdown produces block elements, so reveal them inside a div (the bubble
-  // already supplies padding). Plain text keeps the inline blinking caret.
-  if (markdown) {
-    return (
-      <div className="text-[16px] leading-[1.4]">
-        <Markdown>{shown}</Markdown>
-        {!done ? <span className="caret" /> : null}
-      </div>
-    );
-  }
-  return (
-    <span>
-      {shown}
-      {!done ? <span className="caret" /> : null}
-    </span>
   );
 }

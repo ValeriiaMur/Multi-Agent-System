@@ -12,7 +12,8 @@ load_dotenv()
 @dataclass(frozen=True)
 class Settings:
     llm_provider: str = os.getenv("LLM_PROVIDER", "anthropic")
-    llm_model: str = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
+    # Haiku: fast + cheap, good enough for routing, extraction, and coaching prose.
+    llm_model: str = os.getenv("LLM_MODEL", "claude-haiku-4-5-20251001")
     router_confidence_threshold: float = float(
         os.getenv("ROUTER_CONFIDENCE_THRESHOLD", "0.6")
     )

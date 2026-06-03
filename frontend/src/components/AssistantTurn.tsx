@@ -2,7 +2,7 @@ import type { LogEntry, Route, TraceStep, Workout } from "../types";
 import { ROUTE_META } from "../lib/agent";
 import { RouteBadge } from "./RouteBadge";
 import { Trace } from "./Trace";
-import { Typing, Streamer } from "./primitives";
+import { Typing } from "./primitives";
 import { Markdown } from "./Markdown";
 import { WorkoutCard, RecoveryNote } from "./WorkoutCard";
 import { LogCard } from "./LogEntry";
@@ -12,7 +12,7 @@ import { GenPills } from "./Chips";
 export interface AssistantMsg {
   id: string;
   role: "assistant";
-  phase: "routing" | "thinking" | "done";
+  phase: "routing" | "thinking" | "streaming" | "done";
   srcText?: string;
   route?: Route;
   confidence?: number;
@@ -20,7 +20,6 @@ export interface AssistantMsg {
   offline?: boolean;
   trace?: TraceStep[];
   lead?: string;
-  streamed?: boolean;
   kind?: "text" | "workout" | "log";
   workout?: Workout | null;
   entries?: LogEntry[] | null;
@@ -30,23 +29,19 @@ export interface AssistantMsg {
 
 export function AssistantTurn({
   msg,
-  speed,
   showInternals,
   cardStyle,
-  onChipsReady,
-  onTick,
   onRun,
 }: {
   msg: AssistantMsg;
-  speed: number;
   showInternals: boolean;
   cardStyle: string;
-  onChipsReady: (id: string) => void;
-  onTick: () => void;
   onRun: (text: string) => void;
 }) {
   const routed = msg.phase !== "routing" && msg.route;
+  const streaming = msg.phase === "streaming";
   const done = msg.phase === "done";
+  const showLead = (streaming || done) && msg.lead;
   const workoutEmpty = msg.workout?.meta?.empty;
 
   return (
@@ -60,18 +55,15 @@ export function AssistantTurn({
         {msg.phase === "routing" ? <Typing label="reading your message" /> : null}
         {msg.phase === "thinking" ? <Typing label={(msg.route && ROUTE_META[msg.route]?.sub) || "working"} /> : null}
 
+        {showLead ? (
+          <div className="relative max-w-full break-words rounded-[19px] bg-bubble px-3.5 py-[9px] text-[16px] leading-[1.34] tracking-[-0.2px] text-ink bubble-coach">
+            <Markdown>{msg.lead!}</Markdown>
+            {streaming ? <span className="caret" /> : null}
+          </div>
+        ) : null}
+
         {done ? (
           <>
-            {msg.lead ? (
-              <div className="relative max-w-full break-words rounded-[19px] bg-bubble px-3.5 py-[9px] text-[16px] leading-[1.34] tracking-[-0.2px] text-ink bubble-coach">
-                {msg.streamed ? (
-                  <Markdown>{msg.lead}</Markdown>
-                ) : (
-                  <Streamer text={msg.lead} speed={speed} markdown onTick={onTick} onDone={() => onChipsReady(msg.id)} />
-                )}
-              </div>
-            ) : null}
-
             {msg.kind === "workout" && msg.workout ? (
               workoutEmpty ? (
                 <RecoveryNote meta={msg.workout.meta!} />

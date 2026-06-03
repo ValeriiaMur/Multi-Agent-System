@@ -1,7 +1,8 @@
-"""LLM structured-output router. STUB — implement in Phase 1 (GREEN).
+"""LLM structured-output router.
 
-Routing MUST use llm.with_structured_output(RouterDecision), never regex or
-keyword matching. Low confidence -> CLARIFY.
+Routing uses llm.with_structured_output(RouterDecision), never regex or keyword
+matching. Confidence below the configured threshold is rewritten to CLARIFY so
+the system never silently misroutes.
 """
 from __future__ import annotations
 

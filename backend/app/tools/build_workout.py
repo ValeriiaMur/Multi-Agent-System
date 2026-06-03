@@ -1,4 +1,5 @@
-"""build_workout tool. STUB — implement in Phase 2 (GREEN)."""
+"""build_workout tool: assemble a {warmup, main, cooldown} workout from selected
+exercises, validating every exercise_id against the dataset."""
 from __future__ import annotations
 
 from typing import Any

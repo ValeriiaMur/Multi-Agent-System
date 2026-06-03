@@ -1,4 +1,5 @@
-"""search_exercises tool. STUB — implement in Phase 2 (GREEN)."""
+"""search_exercises tool: filter the catalog by muscles, equipment, patterns, and
+joints to avoid. Pure and deterministic; returns [] when nothing matches."""
 from __future__ import annotations
 
 from ..data import Exercise

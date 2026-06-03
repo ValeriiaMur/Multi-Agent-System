@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { sendChat } from "./api";
+import { streamChat } from "./api";
+import type { ChatResponse } from "./types";
 import { deriveLead, deriveTrace, clarifyChips, STARTERS } from "./lib/agent";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { Header, TabBar, type AgentState } from "./components/Chrome";
@@ -17,7 +18,6 @@ type Message = UserMsg | AssistantMsg;
 let _seq = 0;
 const uid = () => `m${++_seq}`;
 
-const STREAM_SPEED = 22;
 const CARD_STYLE = "tinted";
 
 const WELCOME: AssistantMsg = {
@@ -25,7 +25,6 @@ const WELCOME: AssistantMsg = {
   role: "assistant",
   phase: "done",
   kind: "text",
-  streamed: true,
   lead: "Hey — I'm your Future coach. Ask me about an exercise, tell me to build a session, or log a set you just hit.",
   chips: STARTERS,
 };
@@ -34,7 +33,6 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [busy, setBusy] = useState(false);
   const [agent, setAgent] = useState<AgentState>({ busy: false, phase: null, route: null });
-  const [readyChips, setReadyChips] = useState<Record<string, boolean>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const threadId = useRef(`t${Math.round(performance.now())}`);
 
@@ -50,20 +48,14 @@ export default function App() {
     setMessages((ms) => ms.map((m) => (m.id === id ? ({ ...m, ...fields } as Message) : m)));
   }, []);
 
-  const markChips = useCallback((id: string) => setReadyChips((r) => ({ ...r, [id]: true })), []);
-
-  // Live path is the POST /chat call below; the typewriter effect (Streamer) is a
-  // client-side reveal of the already-complete reply, NOT token-by-token SSE.
-  // This is deliberate: it carries the run_id needed for 👍/👎 feedback, and only
-  // the COACH route returns streamable prose (GENERATE/LOG return structured cards).
-  // A true-SSE alternative exists in api.ts (streamChat → /chat/stream).
+  // Live path: real Server-Sent Events from /chat/stream. The routing decision
+  // arrives first (meta) so the badge shows immediately; coach prose then streams
+  // token-by-token; the final event carries the workout/log payload + run_id.
   const run = useCallback(
-    async (text: string) => {
+    (text: string) => {
       const clean = text.trim();
       if (!clean || busy) return;
       setBusy(true);
-
-      // clear any open quick-reply chips
       setMessages((ms) => ms.map((m) => (m.role === "assistant" && m.chips ? { ...m, chips: null } : m)));
 
       const aId = uid();
@@ -74,51 +66,59 @@ export default function App() {
       ]);
       setAgent({ busy: true, phase: "routing", route: null });
 
-      try {
-        const resp = await sendChat(clean, threadId.current);
+      let acc = "";
+      let settled = false;
 
-        // surface the routing decision, then the sub-agent "thinking" beat
-        patch(aId, {
-          phase: "thinking",
-          route: resp.route,
-          confidence: resp.confidence,
-          reason: resp.reason,
-        });
-        setAgent({ busy: true, phase: "thinking", route: resp.route });
-        await new Promise((r) => setTimeout(r, 380));
-
+      const finish = (resp: ChatResponse) => {
+        if (settled) return;
+        settled = true;
         const trace = deriveTrace(resp);
-        const lead = deriveLead(resp);
-
         if (resp.route === "WORKOUT_GENERATE") {
-          patch(aId, { phase: "done", kind: "workout", lead, workout: resp.workout, trace, runId: resp.run_id });
+          patch(aId, { phase: "done", kind: "workout", lead: deriveLead(resp), workout: resp.workout, trace, runId: resp.run_id });
         } else if (resp.route === "WORKOUT_LOG") {
           const entries = resp.log_entries ?? [];
-          patch(aId, {
-            phase: "done",
-            kind: entries.length ? "log" : "text",
-            lead,
-            entries,
-            trace,
-            runId: resp.run_id,
-          });
+          patch(aId, { phase: "done", kind: entries.length ? "log" : "text", lead: deriveLead(resp), entries, trace, runId: resp.run_id });
         } else if (resp.route === "CLARIFY") {
-          patch(aId, { phase: "done", kind: "text", lead, chips: clarifyChips(clean), trace, runId: resp.run_id });
+          patch(aId, { phase: "done", kind: "text", lead: resp.reply || acc, chips: clarifyChips(clean), trace, runId: resp.run_id });
         } else {
-          patch(aId, { phase: "done", kind: "text", lead, trace, runId: resp.run_id });
+          // COACH — prefer the authoritative reply, falling back to streamed text
+          patch(aId, { phase: "done", kind: "text", lead: resp.reply || acc, trace, runId: resp.run_id });
         }
-      } catch {
-        patch(aId, {
-          phase: "done",
-          kind: "text",
-          lead: "Something went sideways on my end — mind trying that again?",
-        });
-      } finally {
         setBusy(false);
         setAgent({ busy: false, phase: null, route: null });
-      }
+      };
+
+      streamChat(
+        clean,
+        {
+          onMeta: (m) => {
+            patch(aId, { phase: "thinking", route: m.route, confidence: m.confidence, reason: m.reason });
+            setAgent({ busy: true, phase: "thinking", route: m.route });
+          },
+          onToken: (t) => {
+            acc += t;
+            patch(aId, { phase: "streaming", kind: "text", lead: acc });
+            scrollToEnd();
+          },
+          onFinal: (resp) => finish(resp),
+          onError: (detail) => {
+            if (settled) return;
+            settled = true;
+            patch(aId, {
+              phase: "done",
+              kind: "text",
+              lead: detail
+                ? `Something went wrong: ${detail}`
+                : "Something went sideways on my end — mind trying that again?",
+            });
+            setBusy(false);
+            setAgent({ busy: false, phase: null, route: null });
+          },
+        },
+        threadId.current,
+      );
     },
-    [busy, patch],
+    [busy, patch, scrollToEnd],
   );
 
   return (
@@ -137,16 +137,8 @@ export default function App() {
                 </div>
               ) : (
                 <div key={m.id}>
-                  <AssistantTurn
-                    msg={m}
-                    speed={STREAM_SPEED}
-                    showInternals
-                    cardStyle={CARD_STYLE}
-                    onChipsReady={markChips}
-                    onTick={scrollToEnd}
-                    onRun={run}
-                  />
-                  {m.chips && (m.streamed || readyChips[m.id]) ? (
+                  <AssistantTurn msg={m} showInternals cardStyle={CARD_STYLE} onRun={run} />
+                  {m.chips ? (
                     <div className="mt-[3px]">
                       <Chips items={m.chips} onPick={run} />
                     </div>

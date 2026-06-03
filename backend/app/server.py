@@ -98,23 +98,56 @@ def feedback(req: FeedbackRequest):
     return {"ok": sent}
 
 
+def _chunk_text(chunk: Any) -> str:
+    """Extract plain text from an LLM stream chunk (str or Anthropic blocks)."""
+    content = getattr(chunk, "content", "") if chunk else ""
+    if isinstance(content, list):  # Anthropic returns a list of content blocks
+        return "".join(b.get("text", "") for b in content if isinstance(b, dict))
+    return content or ""
+
+
 @app.get("/chat/stream", dependencies=[Depends(require_api_key), Depends(rate_limit)])
 async def chat_stream(message: str, thread_id: str | None = None):
+    """Server-Sent Events: `meta` (routing decision) → `token`* (prose deltas) →
+    `final` (full shaped payload + run_id). Tokens are filtered to the answering
+    node so the router's structured-output tokens never leak into the text."""
     graph = get_graph()
 
     async def gen():
         final: dict[str, Any] = {}
-        async for kind, payload in graph.astream_events(
-            {"messages": [HumanMessage(content=message)]},
-            _config(thread_id),
-            version="v2",
-        ):
-            if kind == "on_chat_model_stream":
-                token = getattr(payload["data"]["chunk"], "content", "")
-                if token:
-                    yield {"event": "token", "data": token}
-            elif kind == "on_chain_end" and payload.get("name") == "LangGraph":
-                final = shape_response(payload["data"]["output"])
+        try:
+            async for ev in graph.astream_events(
+                {"messages": [HumanMessage(content=message)]},
+                _config(thread_id),
+                version="v2",
+            ):
+                kind = ev.get("event")
+                if kind == "on_chain_end" and ev.get("name") == "router":
+                    out = ev.get("data", {}).get("output") or {}
+                    yield {
+                        "event": "meta",
+                        "data": json.dumps(
+                            {
+                                "route": out.get("route"),
+                                "confidence": out.get("confidence"),
+                                "reason": out.get("reason"),
+                            }
+                        ),
+                    }
+                elif kind == "on_chat_model_stream":
+                    node = (ev.get("metadata") or {}).get("langgraph_node")
+                    if node == "router":
+                        continue  # never stream classification tokens
+                    token = _chunk_text(ev.get("data", {}).get("chunk"))
+                    if token:
+                        yield {"event": "token", "data": token}
+                elif kind == "on_chain_end" and ev.get("name") == "LangGraph":
+                    final = shape_response(ev.get("data", {}).get("output") or {})
+                    final["run_id"] = str(ev.get("run_id")) if ev.get("run_id") else None
+        except Exception as exc:  # surface to the client instead of a silent hang
+            log_event("error", "stream", {"detail": str(exc)})
+            yield {"event": "stream_error", "data": json.dumps({"detail": str(exc)})}
+            return
         yield {"event": "final", "data": json.dumps(final)}
 
     return EventSourceResponse(gen())

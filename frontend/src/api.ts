@@ -45,31 +45,52 @@ export async function sendFeedback(
   }
 }
 
+export interface RouteMeta {
+  route: ChatResponse["route"];
+  confidence: number;
+  reason?: string | null;
+}
+
 /**
- * SSE token stream from the backend's /chat/stream endpoint.
- *
- * AVAILABLE BUT NOT USED BY THE DEFAULT UI — App.tsx uses sendChat() and a
- * client-side typewriter instead (see the note on `run` in App.tsx). Before
- * wiring this in, two backend changes are needed:
- *   1. include `run_id` in the final event (feedback attaches to it), and
- *   2. filter `on_chat_model_stream` to the answering node so the router's
- *      structured-output tokens don't leak into the visible text.
- * EventSource can't set headers, so the API key (if any) rides as a query param.
+ * Live SSE from /chat/stream — the app's real-time path.
+ * Event order: `meta` (routing decision) → `token`* (prose deltas) → `final`
+ * (full shaped payload incl. run_id). `stream_error` / transport errors call
+ * onError. EventSource can't set headers, so the API key rides as a query param.
  */
 export function streamChat(
   message: string,
-  handlers: { onToken?: (t: string) => void; onFinal?: (r: ChatResponse) => void },
+  handlers: {
+    onMeta?: (m: RouteMeta) => void;
+    onToken?: (t: string) => void;
+    onFinal?: (r: ChatResponse) => void;
+    onError?: (detail?: string) => void;
+  },
   threadId?: string,
 ): EventSource {
   const params = new URLSearchParams({ message });
   if (threadId) params.set("thread_id", threadId);
   if (API_KEY) params.set("api_key", API_KEY);
   const es = new EventSource(`${API_BASE}/chat/stream?${params.toString()}`);
+
+  es.addEventListener("meta", (e) => handlers.onMeta?.(JSON.parse((e as MessageEvent).data)));
   es.addEventListener("token", (e) => handlers.onToken?.((e as MessageEvent).data));
   es.addEventListener("final", (e) => {
     handlers.onFinal?.(JSON.parse((e as MessageEvent).data));
     es.close();
   });
-  es.onerror = () => es.close();
+  es.addEventListener("stream_error", (e) => {
+    let detail: string | undefined;
+    try {
+      detail = JSON.parse((e as MessageEvent).data)?.detail;
+    } catch {
+      /* ignore */
+    }
+    handlers.onError?.(detail);
+    es.close();
+  });
+  es.onerror = () => {
+    handlers.onError?.();
+    es.close();
+  };
   return es;
 }

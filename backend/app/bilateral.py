@@ -1,4 +1,5 @@
-"""Bilateral pairing helper. STUB — Phase 7 stretch."""
+"""Bilateral pairing helper: auto-include the other-side partner for any
+bilateral exercise (stretch goal)."""
 from __future__ import annotations
 
 from .data import Exercise
