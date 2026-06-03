@@ -43,7 +43,8 @@ export function deriveTrace(resp: ChatResponse): TraceStep[] {
     steps.push({ tool: "extract_log", res: `${entries.length} parsed` });
     if (entries.length) steps.push({ tool: "fuzzy_match", res: `${matched}/${entries.length} matched` });
   } else if (resp.route === "COACH") {
-    steps.push({ tool: "coach.respond", res: "grounded answer" });
+    const n = resp.references?.length ?? 0;
+    steps.push({ tool: "retrieve_context", res: n ? `${n} exercise${n === 1 ? "" : "s"}` : "no matches" });
   } else if (resp.route === "CLARIFY") {
     steps.push({ tool: "clarify", res: "low confidence → ask" });
   }

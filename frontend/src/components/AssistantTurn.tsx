@@ -1,4 +1,4 @@
-import type { LogEntry, Route, TraceStep, Workout } from "../types";
+import type { LogEntry, Reference, Route, TraceStep, Workout } from "../types";
 import { ROUTE_META } from "../lib/agent";
 import { RouteBadge } from "./RouteBadge";
 import { Trace } from "./Trace";
@@ -23,6 +23,7 @@ export interface AssistantMsg {
   kind?: "text" | "workout" | "log";
   workout?: Workout | null;
   entries?: LogEntry[] | null;
+  references?: Reference[] | null;
   runId?: string | null;
   chips?: string[] | null;
 }
@@ -73,6 +74,21 @@ export function AssistantTurn({
             ) : null}
 
             {msg.kind === "log" && msg.entries?.length ? <LogCard entries={msg.entries} /> : null}
+
+            {msg.route === "COACH" && msg.references?.length ? (
+              <div className="flex flex-wrap items-center gap-[5px] pl-0.5">
+                <span className="mr-0.5 font-mono text-[9px] uppercase tracking-[1.2px] text-muted">references</span>
+                {msg.references.map((r) => (
+                  <span
+                    key={r.id}
+                    className="rounded-md border border-line px-[7px] py-0.5 text-[10.5px] text-ink2"
+                    title={r.muscle_groups.join(", ")}
+                  >
+                    {r.name}
+                  </span>
+                ))}
+              </div>
+            ) : null}
 
             {msg.kind === "text" && msg.route === "COACH" ? (
               <ReactionRail text={msg.lead ?? ""} runId={msg.runId} onRegen={() => msg.srcText && onRun(msg.srcText)} />

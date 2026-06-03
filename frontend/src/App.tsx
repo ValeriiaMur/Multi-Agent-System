@@ -82,7 +82,14 @@ export default function App() {
           patch(aId, { phase: "done", kind: "text", lead: resp.reply || acc, chips: clarifyChips(clean), trace, runId: resp.run_id });
         } else {
           // COACH — prefer the authoritative reply, falling back to streamed text
-          patch(aId, { phase: "done", kind: "text", lead: resp.reply || acc, trace, runId: resp.run_id });
+          patch(aId, {
+            phase: "done",
+            kind: "text",
+            lead: resp.reply || acc,
+            references: resp.references,
+            trace,
+            runId: resp.run_id,
+          });
         }
         setBusy(false);
         setAgent({ busy: false, phase: null, route: null });

@@ -13,7 +13,7 @@ Build a hub agent that routes user requests to specialized sub-agents using Lang
 ## Files
 
 - **[`ASSESSMENT.md`](./ASSESSMENT.md)** — the full prompt: task, requirements, stretch goals
-- **[`exercises.json`](./exercises.json)** — the exercise dataset (50 exercises)
+- **[`backend/data/exercises.json`](./backend/data/exercises.json)** — the exercise dataset (50 exercises), single source of truth (override with `EXERCISES_PATH`)
 
 ## Submitting
 
@@ -32,7 +32,7 @@ Layout:
 backend/app/    hub (router + graph), agents (coach/generator/logger), tools (Pydantic schemas), state, data, stretch stubs
 backend/tests/  RED test suite: router, tools, logger, resilience, stretch
 frontend/       Vite + React + TS chat UI (RouteBadge, WorkoutCard, LogEntry) with vitest RED tests
-data/           exercises.json (50 exercises)
+backend/data/   exercises.json (50 exercises) — the dataset
 ```
 
 Run:

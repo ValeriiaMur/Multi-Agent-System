@@ -19,4 +19,5 @@ def shape_response(state: dict[str, Any]) -> dict[str, Any]:
         "reply": reply,
         "workout": state.get("workout"),
         "log_entries": state.get("log_entries"),
+        "references": state.get("references"),
     }

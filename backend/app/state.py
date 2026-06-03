@@ -16,5 +16,6 @@ class HubState(TypedDict, total=False):
     # sub-agent outputs
     workout: dict[str, Any] | None
     log_entries: list[dict[str, Any]] | None
+    references: list[dict[str, Any]] | None  # coach: exercises it grounded the answer in
     # stretch: user constraints
     avoid_joints: list[str]

@@ -41,6 +41,13 @@ export interface LogEntry {
   weight?: number | null;
 }
 
+/** A catalog exercise the coach grounded its answer in. */
+export interface Reference {
+  id: string;
+  name: string;
+  muscle_groups: string[];
+}
+
 export interface ChatResponse {
   route: Route;
   confidence: number;
@@ -48,6 +55,8 @@ export interface ChatResponse {
   reply: string;
   workout?: Workout | null;
   log_entries?: LogEntry[] | null;
+  /** Coach: exercises from your dataset that grounded the answer. */
+  references?: Reference[] | null;
   /** LangSmith run id; thumbs up/down feedback attaches to it. */
   run_id?: string | null;
 }

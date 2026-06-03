@@ -9,22 +9,14 @@ from pathlib import Path
 from pydantic import BaseModel
 
 _HERE = Path(__file__).resolve()
-# Candidate locations, in priority order. Works whether the app is run from the
-# repo root or from backend/ (e.g. Railway with a backend root directory).
-_CANDIDATES = [
-    _HERE.parents[1] / "data" / "exercises.json",  # backend/data/exercises.json
-    _HERE.parents[2] / "data" / "exercises.json",  # <repo>/data/exercises.json
-]
+# Single source of truth, shipped inside the deployable backend. Override with
+# EXERCISES_PATH if you keep the dataset elsewhere.
+_CANONICAL = _HERE.parents[1] / "data" / "exercises.json"  # backend/data/exercises.json
 
 
 def _resolve_data_path() -> Path:
     env = os.getenv("EXERCISES_PATH")
-    if env:
-        return Path(env)
-    for candidate in _CANDIDATES:
-        if candidate.exists():
-            return candidate
-    return _CANDIDATES[0]  # default; load_exercises will raise a clear error
+    return Path(env) if env else _CANONICAL
 
 
 DATA_PATH = _resolve_data_path()

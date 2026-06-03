@@ -1,12 +1,16 @@
 """Coach sub-agent: a compiled StateGraph."""
 from __future__ import annotations
 
+import re
+
 from langgraph.graph import END, START, StateGraph
 
 from .._util import history_messages, last_human_text
 from ..data import Exercise, load_exercises
 from ..observability import log_event
 from ..state import HubState
+
+MAX_REFERENCES = 3
 
 COACH_PROMPT = (
     "You are an expert strength & conditioning coach. Answer the user's training, "
@@ -19,16 +23,27 @@ _CONTEXT_PROMPT = (
 )
 
 
+def _tokens(text: str) -> list[str]:
+    # drop 1–2 char tokens ("s" from possessives, "a", "to", "my") to avoid
+    # spurious overlaps; all dataset muscle terms are 3+ chars.
+    return [t for t in re.split(r"[^a-z0-9]+", text.lower()) if len(t) >= 3]
+
+
 def relevant_exercises(question: str, exercises: list[Exercise], k: int = 5) -> list[Exercise]:
-    """Return up to k catalog exercises whose muscle group or name appears in the
-    question — used to ground the coach's answer in real data."""
-    q = question.lower()
-    hits = [
-        e
-        for e in exercises
-        if any(m in q for m in e.muscle_groups) or e.name.lower() in q
-    ]
-    return hits[:k]
+    """Rank catalog exercises by token overlap with the question across name,
+    muscle groups, movement patterns, and joints — so "what muscles does a
+    deadlift work" surfaces deadlift variants even when no muscle is named."""
+    query = set(_tokens(question))
+    if not query:
+        return []
+    scored: list[tuple[int, Exercise]] = []
+    for e in exercises:
+        hay = _tokens(" ".join([e.name, *e.muscle_groups, *e.movement_patterns, *e.joints_loaded]))
+        overlap = sum(1 for t in hay if t in query)
+        if overlap:
+            scored.append((overlap, e))
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [e for _, e in scored[:k]]
 
 
 def build_coach_graph(llm, exercises=None):
@@ -51,7 +66,11 @@ def build_coach_graph(llm, exercises=None):
         messages.extend(history)  # prior turns -> the coach remembers the conversation
         messages.append(("human", text))
         reply = llm.invoke(messages)
-        return {"messages": [reply]}
+        references = [
+            {"id": e.id, "name": e.name, "muscle_groups": e.muscle_groups}
+            for e in grounded[:MAX_REFERENCES]
+        ]
+        return {"messages": [reply], "references": references}
 
     g = StateGraph(HubState)
     g.add_node("coach", coach)
