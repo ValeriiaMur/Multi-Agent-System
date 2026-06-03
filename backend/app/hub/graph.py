@@ -4,7 +4,7 @@ from __future__ import annotations
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
 
-from .._util import last_human_text
+from .._util import last_human_text, recent_context
 from ..agents.coach import build_coach_graph
 from ..agents.workout_generator import build_generator_graph
 from ..agents.workout_logger import build_logger_graph
@@ -30,7 +30,8 @@ def build_hub_graph(llm, exercises=None, checkpointer=None):
     logger = build_logger_graph(llm, exercises)
 
     def router(state: HubState) -> dict:
-        decision = route_message(last_human_text(state["messages"]), llm)
+        messages = state["messages"]
+        decision = route_message(last_human_text(messages), llm, recent_context(messages))
         log_event("router", "route", {"route": decision.route, "confidence": decision.confidence})
         return {
             "route": decision.route,
