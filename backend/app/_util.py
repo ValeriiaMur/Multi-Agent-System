@@ -53,3 +53,31 @@ def recent_context(messages: list[Any], turns: int = 4, max_chars: int = 240) ->
             text = text[: max_chars - 1] + "…"
         lines.append(f"{rt[0]}: {text}")
     return "\n".join(lines)
+
+
+def history_messages(
+    messages: list[Any], turns: int = 8, max_chars: int = 600
+) -> list[tuple[str, str]]:
+    """Return prior conversation as ("human"/"ai", text) tuples to feed an LLM,
+    so a sub-agent can *remember* earlier turns instead of seeing only the latest
+    message. Excludes the trailing human turn (the node appends that itself) and
+    keeps only the last ``turns`` messages — stored memory is unbounded, but what
+    we send to the model must stay bounded."""
+    msgs = list(messages or [])
+    # drop the trailing human turn (added separately by the calling node)
+    for i in range(len(msgs) - 1, -1, -1):
+        rt = _role_and_text(msgs[i])
+        if rt and rt[0] == "User":
+            msgs = msgs[:i]
+            break
+    out: list[tuple[str, str]] = []
+    for m in msgs[-turns:]:
+        rt = _role_and_text(m)
+        if not rt or not rt[1].strip():
+            continue
+        role = "human" if rt[0] == "User" else "ai"
+        text = " ".join(rt[1].split())
+        if len(text) > max_chars:
+            text = text[: max_chars - 1] + "…"
+        out.append((role, text))
+    return out

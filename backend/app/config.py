@@ -36,6 +36,28 @@ def get_allowed_origins() -> list[str]:
     return origins or ["*"]
 
 
+_ROLE_MODEL_DEFAULTS = {
+    "router": "claude-sonnet-4-6",  # routing quality matters most; one short call
+    "coach": "claude-haiku-4-5-20251001",
+    "generator": "claude-haiku-4-5-20251001",
+    "logger": "claude-haiku-4-5-20251001",
+}
+
+
+def get_model(role: str) -> str:
+    """Model id for a sub-agent role.
+
+    Precedence: <ROLE>_MODEL env  >  global LLM_MODEL env  >  per-role default.
+    So routing defaults to a stronger model while prose/extraction stay on Haiku;
+    set ROUTER_MODEL / COACH_MODEL / GENERATOR_MODEL / LOGGER_MODEL to override.
+    """
+    return (
+        os.getenv(f"{role.upper()}_MODEL")
+        or os.getenv("LLM_MODEL")
+        or _ROLE_MODEL_DEFAULTS.get(role, "claude-haiku-4-5-20251001")
+    )
+
+
 def get_api_key() -> str | None:
     """Shared secret the frontend must send as X-API-Key. None disables the check."""
     return os.getenv("API_KEY") or None

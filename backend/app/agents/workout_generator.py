@@ -16,6 +16,7 @@ from ..data import load_exercises
 from ..observability import log_event
 from ..state import HubState
 from ..tools.build_workout import UnknownExerciseError, build_workout
+from ..tools.normalize import AMBIENT_EQUIPMENT, normalize_equipment, normalize_muscles
 from ..tools.schemas import BuildWorkoutInput, SearchExercisesInput, WorkoutItem
 from ..tools.search_exercises import search_exercises
 
@@ -92,17 +93,34 @@ def build_generator_graph(llm, exercises=None):
             [("system", GEN_PROMPT), ("human", text)]
         )
         avoid = list({*spec.avoid_joints, *state.get("avoid_joints", [])})
-        log_event("llm", "generator.spec", {"muscles": spec.muscle_groups, "avoid": avoid})
+        # Normalize loose LLM vocab to the dataset's exact names, and treat benches/
+        # racks/plates as ambient so e.g. a dumbbell session isn't filtered to nothing.
+        # (movement_patterns are intentionally not used as a hard filter — they rarely
+        # match the dataset's specific pattern strings and would over-exclude.)
+        muscles = normalize_muscles(spec.muscle_groups)
+        raw_equipment = spec.equipment or []
+        user_equipment = normalize_equipment(raw_equipment)
+        if user_equipment:
+            search_equipment = user_equipment + sorted(AMBIENT_EQUIPMENT)
+        elif raw_equipment:
+            # gear we don't recognize/stock -> let search return nothing (honest recovery)
+            search_equipment = raw_equipment
+        else:
+            search_equipment = []
+        log_event("llm", "generator.spec", {"muscles": muscles, "equipment": user_equipment, "avoid": avoid})
 
         found = search_exercises(
             SearchExercisesInput(
-                muscle_groups=spec.muscle_groups,
-                equipment=spec.equipment,
-                movement_patterns=spec.movement_patterns,
+                muscle_groups=muscles,
+                equipment=search_equipment,
                 avoid_joints=avoid,
             ),
             catalog,
         )
+        # keep the session on-theme: prefer exercises that actually use the gear asked for
+        if user_equipment:
+            on_theme = [e for e in found if set(e.equipment_required) & set(user_equipment)]
+            found = on_theme or found
         log_event("tool", "search_exercises", {"n": len(found)})
 
         if not found:
@@ -128,7 +146,8 @@ def build_generator_graph(llm, exercises=None):
         # Real warm-up / cool-down drawn from the same catalog (never invented).
         chosen_ids = {e.id for e in chosen}
         warm = [e for e in catalog if _is_warmup(e) and e.id not in chosen_ids][:2]
-        cool = [e for e in catalog if _is_cooldown(e) and e.id not in chosen_ids][:2]
+        warm_ids = chosen_ids | {e.id for e in warm}
+        cool = [e for e in catalog if _is_cooldown(e) and e.id not in warm_ids][:2]
         warm_items = [WorkoutItem(exercise_id=e.id, sets=1, reps=1, rest_seconds=15) for e in warm]
         cool_items = [WorkoutItem(exercise_id=e.id, sets=1, reps=1, rest_seconds=0) for e in cool]
         try:
@@ -158,7 +177,7 @@ def build_generator_graph(llm, exercises=None):
             "duration_min": spec.duration_minutes,
             "goal": spec.goal,
             "muscle_groups": spec.muscle_groups,
-            "equipment": spec.equipment or ["Any"],
+            "equipment": user_equipment or ["Any"],
             "avoid_joints": avoid,
             "empty": False,
         }

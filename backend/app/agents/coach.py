@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
-from .._util import last_human_text
+from .._util import history_messages, last_human_text
 from ..data import Exercise, load_exercises
 from ..observability import log_event
 from ..state import HubState
@@ -38,11 +38,17 @@ def build_coach_graph(llm, exercises=None):
     def coach(state: HubState) -> dict:
         text = last_human_text(state["messages"])
         grounded = relevant_exercises(text, catalog)
-        log_event("llm", "coach", {"chars": len(text), "grounded": len(grounded)})
+        history = history_messages(state["messages"])
+        log_event(
+            "llm",
+            "coach",
+            {"chars": len(text), "grounded": len(grounded), "history": len(history)},
+        )
         messages = [("system", COACH_PROMPT)]
         if grounded:
             items = "\n".join(f"- {e.name} ({', '.join(e.muscle_groups)})" for e in grounded)
             messages.append(("system", _CONTEXT_PROMPT.format(items=items)))
+        messages.extend(history)  # prior turns -> the coach remembers the conversation
         messages.append(("human", text))
         reply = llm.invoke(messages)
         return {"messages": [reply]}

@@ -66,11 +66,20 @@ class FeedbackRequest(BaseModel):
 
 @lru_cache(maxsize=1)
 def get_graph():
+    from .config import get_model
     from .hub.graph import build_hub_graph
     from .llm import get_llm
     from .memory import get_checkpointer
 
-    return build_hub_graph(get_llm(), checkpointer=get_checkpointer())
+    # Per-agent models: routing on a stronger model, prose/extraction on Haiku.
+    return build_hub_graph(
+        get_llm(get_model("coach")),
+        checkpointer=get_checkpointer(),
+        router_llm=get_llm(get_model("router")),
+        coach_llm=get_llm(get_model("coach")),
+        generator_llm=get_llm(get_model("generator")),
+        logger_llm=get_llm(get_model("logger")),
+    )
 
 
 def _config(thread_id: str | None) -> dict:

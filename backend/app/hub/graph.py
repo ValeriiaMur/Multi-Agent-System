@@ -18,20 +18,33 @@ CLARIFY_TEXT = (
 )
 
 
-def build_hub_graph(llm, exercises=None, checkpointer=None):
+def build_hub_graph(
+    llm,
+    exercises=None,
+    checkpointer=None,
+    *,
+    router_llm=None,
+    coach_llm=None,
+    generator_llm=None,
+    logger_llm=None,
+):
     """Return the compiled hub StateGraph.
 
     Router node sets the route; conditional edges dispatch to the coach, generator,
     or logger sub-graphs (each composed as a node, not inlined). Low-confidence
     routing short-circuits to a CLARIFY node.
+
+    Each role can run on its own model (router defaults to a stronger one); any
+    unset role falls back to ``llm`` so tests can pass a single fake model.
     """
-    coach = build_coach_graph(llm, exercises)
-    generator = build_generator_graph(llm, exercises)
-    logger = build_logger_graph(llm, exercises)
+    router_llm = router_llm or llm
+    coach = build_coach_graph(coach_llm or llm, exercises)
+    generator = build_generator_graph(generator_llm or llm, exercises)
+    logger = build_logger_graph(logger_llm or llm, exercises)
 
     def router(state: HubState) -> dict:
         messages = state["messages"]
-        decision = route_message(last_human_text(messages), llm, recent_context(messages))
+        decision = route_message(last_human_text(messages), router_llm, recent_context(messages))
         log_event("router", "route", {"route": decision.route, "confidence": decision.confidence})
         return {
             "route": decision.route,
