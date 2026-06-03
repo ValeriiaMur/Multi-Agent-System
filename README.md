@@ -70,8 +70,22 @@ The LLM is stubbed in tests (deterministic, offline). Live runs use Anthropic vi
 cd backend
 export ANTHROPIC_API_KEY=sk-ant-...
 python -m scripts.demo        # runs all three routes + an ambiguous (CLARIFY) case
+python -m scripts.eval_routing  # scores the router on the golden set (exits non-zero below floor)
 pytest -m live                # golden tests against the real model (skipped without a key)
 ```
+
+### Routing evals
+
+Routing is the highest-leverage decision (a silent misroute is the worst
+failure), so it has a labeled golden set and a scoring harness in
+[`app/evals/routing.py`](backend/app/evals/routing.py). The dataset covers every
+route, the "act over clarify" cases (e.g. `"next workout"` → `WORKOUT_GENERATE`),
+the CLARIFY safety net (`"bench press"` alone), and **context-dependent
+follow-ups** (`"make it harder"` after a generated workout). The harness is
+provider-agnostic — pass any `route_fn(messages) -> route`.
+
+- Offline (`test_evals.py`): self-tests the harness + asserts dataset coverage — runs in the default suite.
+- Live (`test_routing_accuracy_live`, marked `@live`): runs the real router over the set and asserts accuracy ≥ 0.8. Run with `pytest -m live` or `python -m scripts.eval_routing` (the latter can gate CI).
 
 ### Observability (LangSmith)
 
